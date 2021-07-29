@@ -1,7 +1,6 @@
 # SVR calibration relying on Convex.jl
 
 using Convex
-# using ECOS
 using COSMO
 
 function calibrate_Primal(y::AbstractVector{T}, K::AbstractMatrix{T}, ϵ::T, C::AbstractVector{T}) where {T <: Real}

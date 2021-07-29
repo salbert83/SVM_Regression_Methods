@@ -26,13 +26,14 @@ function calibrate_surrogate(y::AbstractVector{T}, apply_K!, ϵ::T, C::AbstractV
     ; maxiters = 1000
     , tol = 1.0e-6
     , max_CG_iters = 50
-    , CG_tol = 1.0e-5) where {T <: Real}
+    , CG_tol = 1.0e-5
+    , w_init = nothing) where {T <: Real}
 
     m = length(y)
     r = similar(y)
     z = similar(y)
-    w = zeros(T, m)
-    w_ = zeros(T, m)
+    w = isnothing(w_init) ? zeros(T, m) : copy(w_init)
+    w_ = copy(w)
     b = zero(T)
     A = similar(y)
     temp_b = similar(y)
