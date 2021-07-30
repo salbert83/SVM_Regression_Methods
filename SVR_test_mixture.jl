@@ -17,7 +17,7 @@ y = [y_models[i, selection[i]] for i = 1:m]
 ϵ = 0.1
 C = 10.0
 k = 2
-kernel = KernelFunctions.LinearKernel()
+kernel = KernelFunctions.PolynomialKernel(degree=5, c = 1.5)
 
 mixed_model =  fit_mixture(y,  X, ϵ, C, k, kernel, method = :surrogate, tol = 1.0e-5, max_iters = 1_000)
 probs(mixed_model)
