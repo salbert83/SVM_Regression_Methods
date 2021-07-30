@@ -31,7 +31,8 @@ function calibrate_Dual(y::AbstractVector{T}, K::AbstractMatrix{T}, ϵ::T, C::Ab
     w = K * λ_val
     b = zero(T)
     for i = 1:m
-        if 0 < abs(λ_val[i]) < 0.5C[i]
+        tol = √eps(0.5C[i])
+        if tol < abs(λ_val[i]) < 0.5C[i] - tol
             b = y[i] - dot(K[i,:], w) - sign(λ_val[i]) * ϵ
             break
         end

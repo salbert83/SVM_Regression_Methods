@@ -50,12 +50,14 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
     # Use K-means for initial clusters
     clusters = Clustering.kmeans(YX_', k)
     wgts = [((clusters.assignments[i] .== j) ? 1.0 : 0.0) for i = 1:m, j = 1:k]
-    wgts_old = copy(wgts)
     models = Vector{SVR_ConditionalDensity}(undef, k)
 
     θ = zeros(T, m, k)
     b = zeros(T, k)
     p = zeros(T, k)
+    probs = zeros(T, m, k)
+    loglikelihood = -Inf64
+    loglikelihood_old = -Inf64
 
     for iter = 1:max_iters
         p .= (sum(wgts, dims=1) ./ m)[1,:]
@@ -82,17 +84,19 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
             ξ = y .- K*θ[:, model_idx] .- b[model_idx]
             for i = 1:m
                 wgts[i, model_idx] = log(p[model_idx]) + log_cond_prob(ξ[i], ϵ, C)
+                probs[i, model_idx] = exp(wgts[i, model_idx])
             end
         end
+        loglikelihood = sum(log.(sum(probs, dims = 2)))
         wgts .-= maximum(wgts, dims = 2)
         wgts .= exp.(wgts)
         wgts ./= sum(wgts, dims = 2)
-        norm_diff = norm(wgts - wgts_old, 1)
-        println("iter $(iter): norm diff = $(norm_diff)")
-        if norm_diff < tol * m
+
+        println("iter $(iter): loglikelihood = $(loglikelihood)")
+        if loglikelihood - loglikelihood_old < tol * abs(loglikelihood)
             break
         else
-            wgts_old .= wgts
+            loglikelihood_old = loglikelihood
         end
     end
     for model_idx = 1:k

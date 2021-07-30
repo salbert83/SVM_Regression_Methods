@@ -6,7 +6,8 @@ using LinearAlgebra
 # warm up the solvers
 m, n = 100, 20
 X = randn(m, n)
-y = sin.(sum(X, dims=2))[:,1] .+ log.(sum(exp.(X), dims=2))[:,1] .+ 0.1randn(m)
+# y = sin.(sum(X, dims=2))[:,1] .+ log.(sum(exp.(X), dims=2))[:,1] .+ 0.1randn(m)
+y = (sum(X[:,1:(n ÷ 2)], dims=2) .- sum(X[:,((n ÷ 2) + 1):end], dims=2))[:,1]
 ϵ = 0.01
 C = 10.0*rand(m)
 
@@ -29,9 +30,10 @@ y_pred3 = predict(svr3, X)
 # benchmark
 
 # The problem
-m, n = 1_000, 20
+m, n = 2_000, 20
 X = randn(m, n)
-y = sin.(sum(X, dims=2))[:,1] .+ log.(sum(exp.(X), dims=2))[:,1] .+ 0.1randn(m)
+# y = sin.(sum(X, dims=2))[:,1] .+ log.(sum(exp.(X), dims=2))[:,1] .+ 0.1randn(m)
+y = (sum(X[:,1:(n ÷ 2)], dims=2) .- sum(X[:,((n ÷ 2) + 1):end], dims=2))[:,1]
 ϵ = 0.01
 C = 10.0*rand(m)
 
