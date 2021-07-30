@@ -27,14 +27,14 @@ function calibrate_surrogate(y::AbstractVector{T}, apply_K!, ϵ::T, C::AbstractV
     , tol = 1.0e-6
     , max_CG_iters = 50
     , CG_tol = 1.0e-5
-    , w_init = nothing) where {T <: Real}
+    , w_init = nothing
+    , b_init = nothing) where {T <: Real}
 
     m = length(y)
     r = similar(y)
     z = similar(y)
-    w = isnothing(w_init) ? zeros(T, m) : copy(w_init)
-    w_ = copy(w)
-    b = zero(T)
+    w::Vector{T} = isnothing(w_init) ? zeros(T, m) : copy(w_init)
+    b::T = isnothing(b_init) ? zero(T) : b_init
     A = similar(y)
     temp_b = similar(y)
     temp_Q = similar(y)
@@ -52,9 +52,21 @@ function calibrate_surrogate(y::AbstractVector{T}, apply_K!, ϵ::T, C::AbstractV
         return sum(A .* temp_b) / sum(A)
     end
 
+    svr_cost = Inf64
+    svr_cost_old = Inf64
+
     for iter = 1:maxiters
-        apply_K!(w_, r)
+        apply_K!(w, r)
         r .= y .- r .- b
+        svr_cost = 0.5dot(w,w) + 0.5sum(C .* ϵ_insensitive_loss.(r, ϵ))
+        # println("svr_cost = $(svr_cost)")
+        if svr_cost_old - svr_cost < max(tol, tol*svr_cost)
+            println("Exiting at iteration $(iter)")
+            return (w = w, b = b)
+        else
+            svr_cost_old = svr_cost
+        end
+
         params .= surrogate_params.(r, ϵ, τ = √eps(ϵ))
         for i = 1:m
             A[i] = C[i] * params[i].a
@@ -81,7 +93,6 @@ function calibrate_surrogate(y::AbstractVector{T}, apply_K!, ϵ::T, C::AbstractV
         apply_K!(temp_d, d)
 
         # Use CG to approximately minimize the surrogate.
-        w .= w_
         apply_Q!(w, r)
         r .-= d
         res_norm = norm(r)
@@ -105,15 +116,6 @@ function calibrate_surrogate(y::AbstractVector{T}, apply_K!, ϵ::T, C::AbstractV
         end
 
         b = calculate_b(w, A, params)
-
-        update_diff = norm(w - w_)
-
-        if update_diff < tol * norm(w)
-            println("Exiting at iteration $(iter)")
-            return (w = w, b = b)
-        else
-            w_ .= w
-        end
 
     end
 

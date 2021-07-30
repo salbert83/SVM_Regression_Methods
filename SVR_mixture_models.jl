@@ -54,13 +54,13 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
 
     θ = zeros(T, m, k)
     b = zeros(T, k)
-    p = zeros(T, k)
-    probs = zeros(T, m, k)
+    component_probs = zeros(T, k)
+    probs_likelihood = zeros(T, m, k)
     loglikelihood = -Inf64
     loglikelihood_old = -Inf64
 
     for iter = 1:max_iters
-        p .= (sum(wgts, dims=1) ./ m)[1,:]
+        component_probs .= (sum(wgts, dims=1) ./ m)[1,:]
         for model_idx = 1:k
             weights, bias = if method == :cvx_primal
                     calibrate_Primal(y, K, ϵ, C * wgts[:, model_idx])
@@ -72,7 +72,8 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
                         , tol = 1.0e-6
                         , CG_tol = 1.0e-5
                         , max_CG_iters = 50
-                        , w_init = θ[:, model_idx])
+                        , w_init = θ[:, model_idx]
+                        , b_init = b[model_idx])
                 else
                     throw(ArgumentError("Unsupported SVR optimization"))
                 end
@@ -83,11 +84,11 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
         for model_idx = 1:k
             ξ = y .- K*θ[:, model_idx] .- b[model_idx]
             for i = 1:m
-                wgts[i, model_idx] = log(p[model_idx]) + log_cond_prob(ξ[i], ϵ, C)
-                probs[i, model_idx] = exp(wgts[i, model_idx])
+                wgts[i, model_idx] = log(component_probs[model_idx]) + log_cond_prob(ξ[i], ϵ, C)
+                probs_likelihood[i, model_idx] = exp(wgts[i, model_idx])
             end
         end
-        loglikelihood = sum(log.(sum(probs, dims = 2)))
+        loglikelihood = sum(log.(sum(probs_likelihood, dims = 2)))
         wgts .-= maximum(wgts, dims = 2)
         wgts .= exp.(wgts)
         wgts ./= sum(wgts, dims = 2)
@@ -111,5 +112,5 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
             , C = C
             )
     end
-    return MixtureModel(models, p)
+    return MixtureModel(models, component_probs)
 end
