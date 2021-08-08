@@ -82,3 +82,11 @@ function cost(svr::SVR_ConditionalDensity, y::AbstractVector{T}, X::AbstractMatr
     y_pred = predict(svr, X)
     return 0.5dot(svr.w,svr.w) + 0.5sum(svr.C .* ϵ_insensitive_loss.(y - y_pred, svr.ϵ))
 end
+
+function predict(mixed::MixtureModel{Univariate, Continuous, SVR_ConditionalDensity, Categorical{T, Vector{T}}}, X::AbstractVector{T}) where {T<:Real}
+     return sum(p * predict(svr, X) for (p, svr) ∈ zip(probs(mixed), components(mixed)))
+end
+
+function predict(mixed::MixtureModel{Univariate, Continuous, SVR_ConditionalDensity, Categorical{T, Vector{T}}}, X::AbstractMatrix{T}) where {T<:Real}
+     return [predict(mixed, X[i,:]) for i = 1:size(X,1)]
+end

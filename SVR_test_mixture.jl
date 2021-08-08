@@ -6,7 +6,7 @@ using Plots
 using Distributions
 
 # test ability to recover 2 component mixture
-m, n = 10000, 20
+m, n = 1000, 20
 X = randn(m, n)
 y1 = log.(sum(exp.(X), dims=2))[:,1] .+ 0.1randn(m) # sum(X, dims = 2)[:,1] .+ 0.1randn(m)
 y2 = sin.(sum(X, dims=2))[:,1] .+ 0.1randn(m) # (sum(X[:,1:(n ÷ 2)], dims = 2) .- sum(X[:,((n ÷ 2)+1):end], dims = 2))[:,1]
@@ -21,3 +21,8 @@ kernel = KernelFunctions.PolynomialKernel(degree = 2, c = 0.5)
 
 mixed_model =  fit_mixture(y,  X, ϵ, C, k, kernel, method = :surrogate, tol = 1.0e-5, max_iters = 1_000)
 probs(mixed_model)
+
+pred = predict(mixed_model, X)
+
+plt = plot(y)
+plot!(plt, predict(mixed_model, X))
