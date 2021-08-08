@@ -41,7 +41,7 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
     θ = zeros(T, m, k)
     b = zeros(T, k)
     component_probs = zeros(T, k)
-    probs_likelihood = zeros(T, m, k)
+    offset = zeros(T, m, 1)
     loglikelihood = -Inf64
     loglikelihood_old = -Inf64
 
@@ -71,12 +71,12 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
             ξ = y .- K*θ[:, model_idx] .- b[model_idx]
             for i = 1:m
                 wgts[i, model_idx] = log(component_probs[model_idx]) + log_cond_prob(ξ[i], ϵ, C)
-                probs_likelihood[i, model_idx] = exp(wgts[i, model_idx])
             end
         end
-        loglikelihood = sum(log.(sum(probs_likelihood, dims = 2)))
-        wgts .-= maximum(wgts, dims = 2)
+        offset .= maximum(wgts, dims = 2)
+        wgts .-= offset
         wgts .= exp.(wgts)
+        loglikelihood =  sum(offset .+ log.(sum(wgts, dims = 2)))
         wgts ./= sum(wgts, dims = 2)
 
         println("iter $(iter): loglikelihood = $(loglikelihood)")
