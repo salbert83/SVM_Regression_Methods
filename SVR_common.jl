@@ -31,7 +31,7 @@ function logpdf(d::SVR_ConditionalDensity, y, x)
     for j = 1:length(d.w)
         ξ += d.kernel(x_, d.data[j,:]) * d.w[j]
     end
-    return log_cond_prob(ξ, ϵ, C)
+    return log_cond_prob(ξ, d.ϵ, d.C)
 end
 
 pdf(d::SVR_ConditionalDensity, y, x) = exp(logpdf(d, y, x))
