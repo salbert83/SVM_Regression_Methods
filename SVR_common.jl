@@ -26,9 +26,9 @@ end
 log_cond_prob(ξ, ϵ, C) = log(C / (2.0 * (2.0 + ϵ * C))) - ϵ_insensitive_loss(ξ, ϵ)
 
 function logpdf(d::SVR_ConditionalDensity, y, x)
-    x_ = (x .- μ) ./ σ
+    x_ = (x .- d.μ) ./ d.σ
     ξ = d.b
-    for j = 1:length(w)
+    for j = 1:length(d.w)
         ξ += d.kernel(x_, d.data[j,:]) * d.w[j]
     end
     return log_cond_prob(ξ, ϵ, C)

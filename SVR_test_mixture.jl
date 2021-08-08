@@ -6,7 +6,7 @@ using Plots
 using Distributions
 
 # test ability to recover 2 component mixture
-m, n = 1000, 20
+m, n = 2000, 20
 X = randn(m, n)
 y1 = log.(sum(exp.(X), dims=2))[:,1] .+ 0.1randn(m) # sum(X, dims = 2)[:,1] .+ 0.1randn(m)
 y2 = sin.(sum(X, dims=2))[:,1] .+ 0.1randn(m) # (sum(X[:,1:(n ÷ 2)], dims = 2) .- sum(X[:,((n ÷ 2)+1):end], dims = 2))[:,1]
@@ -25,4 +25,4 @@ probs(mixed_model)
 pred = predict(mixed_model, X)
 
 plt = plot(y)
-plot!(plt, predict(mixed_model, X))
+plot!(plt, pred)
