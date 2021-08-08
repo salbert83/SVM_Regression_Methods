@@ -6,20 +6,6 @@ using Statistics
 
 import Distributions: pdf, logpdf
 
-function logpdf(d::SVR_ConditionalDensity, y, x)
-    x_ = (x .- μ) ./ σ
-    ξ = d.b
-    for j = 1:length(w)
-        ξ += d.kernel(x_, d.data[j,:]) * w[j]
-    end
-    return log(d.C / (2.0 * (2.0 + d.ϵ * d.C))) - ϵ_insensitive_loss(ξ, d.ϵ)
-end
-
-pdf(d::SVR_ConditionalDensity, y, x) = exp(logpdf(d, y, x))
-
-# pdf consistent with SVR penalty C/2 |ξ|_ϵ
-log_cond_prob(ξ, ϵ, C) = log(C / (2.0 * (2.0 + ϵ * C))) - ϵ_insensitive_loss(ξ, ϵ)
-
 function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k, kernel
     ; method = :surrogate
     , tol = 1.0e-4

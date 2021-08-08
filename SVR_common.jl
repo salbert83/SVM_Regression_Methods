@@ -2,17 +2,7 @@ using Distributions
 using KernelFunctions
 using Parameters
 
-@with_kw struct SVM_Regression{T <: Real}
-    # Required to normalize the input
-    μ::AbstractVector{T}
-    σ::AbstractVector{T}
-
-    # SVR parameters
-    w::AbstractVector{T}
-    b::T
-    kernel::Kernel
-    data::AbstractMatrix{T}
-end
+import Distributions: pdf, logpdf
 
 @with_kw struct SVR_ConditionalDensity{T <: Real} <: ContinuousUnivariateDistribution
     # Required to normalize the input
@@ -31,3 +21,17 @@ end
 end
 
 ϵ_insensitive_loss(x, ϵ) = max(abs(x) - ϵ, 0.0)
+
+# pdf consistent with SVR penalty C/2 |ξ|_ϵ
+log_cond_prob(ξ, ϵ, C) = log(C / (2.0 * (2.0 + ϵ * C))) - ϵ_insensitive_loss(ξ, ϵ)
+
+function logpdf(d::SVR_ConditionalDensity, y, x)
+    x_ = (x .- μ) ./ σ
+    ξ = d.b
+    for j = 1:length(w)
+        ξ += d.kernel(x_, d.data[j,:]) * d.w[j]
+    end
+    return log_cond_prob(ξ, ϵ, C)
+end
+
+pdf(d::SVR_ConditionalDensity, y, x) = exp(logpdf(d, y, x))

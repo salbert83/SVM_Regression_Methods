@@ -2,7 +2,7 @@ using KernelFunctions
 using LinearAlgebra
 using Statistics
 
-function fit(::Type{SVM_Regression}, y::AbstractVector{T}, X::AbstractMatrix{T}, kernel, ϵ::T, C::AbstractVector{T}
+function fit(::Type{SVR_ConditionalDensity}, y::AbstractVector{T}, X::AbstractMatrix{T}, kernel, ϵ::T, C::T
         ; method = :surrogate
         , assemble_kernel = true
     ) where {T <: Real}
@@ -41,11 +41,11 @@ function fit(::Type{SVM_Regression}, y::AbstractVector{T}, X::AbstractMatrix{T},
     end
 
     weights, bias = if method == :cvx_primal
-            calibrate_Primal(y, K, ϵ, C)
+            calibrate_Primal(y, K, ϵ, fill(C, length(y)))
         elseif method == :cvx_dual
-            calibrate_Dual(y, K, ϵ, C)
+            calibrate_Dual(y, K, ϵ, fill(C, length(y)))
         elseif method == :surrogate
-            calibrate_surrogate(y, apply_kernel!, ϵ, C
+            calibrate_surrogate(y, apply_kernel!, ϵ, fill(C, length(y))
                 , maxiters = 1000
                 , tol = 1.0e-6
                 , CG_tol = 1.0e-5
@@ -54,16 +54,18 @@ function fit(::Type{SVM_Regression}, y::AbstractVector{T}, X::AbstractMatrix{T},
             throw(ArgumentError("Unsupported SVR optimization"))
         end
 
-    return SVM_Regression(μ = μ[1,:]
+    return SVR_ConditionalDensity(μ = μ[1,:]
                         , σ = σ[1,:]
                         , w = weights
                         , b = bias
                         , kernel = kernel
-                        , data = X_)
+                        , data = X_
+                        , ϵ = ϵ
+                        , C = C)
 
 end
 
-function predict(svr::SVM_Regression, X::AbstractVector{T}) where {T <: Real}
+function predict(svr::SVR_ConditionalDensity, X::AbstractVector{T}) where {T <: Real}
     X_ = (X .- svr.μ) ./ svr.σ
     y = svr.b
     for i = 1:size(svr.data,1)
@@ -72,11 +74,11 @@ function predict(svr::SVM_Regression, X::AbstractVector{T}) where {T <: Real}
     return y
 end
 
-function predict(svr::SVM_Regression, X::AbstractMatrix{T}) where {T <: Real}
+function predict(svr::SVR_ConditionalDensity, X::AbstractMatrix{T}) where {T <: Real}
     return [predict(svr, X[i,:]) for i = 1:size(X,1)]
 end
 
-function cost(svr::SVM_Regression, y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::AbstractVector{T}) where {T <: Real}
+function cost(svr::SVR_ConditionalDensity, y::AbstractVector{T}, X::AbstractMatrix{T}) where {T <: Real}
     y_pred = predict(svr, X)
-    return 0.5dot(svr.w,svr.w) + 0.5sum(C .* ϵ_insensitive_loss.(y - y_pred, ϵ))
+    return 0.5dot(svr.w,svr.w) + 0.5sum(svr.C .* ϵ_insensitive_loss.(y - y_pred, svr.ϵ))
 end

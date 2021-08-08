@@ -9,52 +9,52 @@ X = randn(m, n)
 # y = sin.(sum(X, dims=2))[:,1] .+ log.(sum(exp.(X), dims=2))[:,1] .+ 0.1randn(m)
 y = (sum(X[:,1:(n ÷ 2)], dims=2) .- sum(X[:,((n ÷ 2) + 1):end], dims=2))[:,1]
 ϵ = 0.01
-C = 10.0*rand(m)
+C = 10.0
 
 # Kernel
 kernel = KernelFunctions.GaussianKernel()
 
-svr1 = fit(SVM_Regression, y, X, kernel, ϵ, C, assemble_kernel = true, method = :cvx_primal)
-cst1 = cost(svr1, y, X, ϵ, C)
+svr1 = fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, assemble_kernel = true, method = :cvx_primal)
+cst1 = cost(svr1, y, X)
 y_pred1 = predict(svr1, X)
 
-svr2 = fit(SVM_Regression, y, X, kernel, ϵ, C, assemble_kernel = true, method = :cvx_dual)
-cst2 = cost(svr2, y, X, ϵ, C)
+svr2 = fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, assemble_kernel = true, method = :cvx_dual)
+cst2 = cost(svr2, y, X)
 y_pred2 = predict(svr2, X)
 
-svr3 = fit(SVM_Regression, y, X, kernel, ϵ, C, assemble_kernel = true, method = :surrogate)
-cst3 = cost(svr3, y, X, ϵ, C)
+svr3 = fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, assemble_kernel = true, method = :surrogate)
+cst3 = cost(svr3, y, X)
 y_pred3 = predict(svr3, X)
 
 
 # benchmark
 
 # The problem
-m, n = 10_000, 20
+m, n = 1_000, 20
 X = randn(m, n)
 # y = sin.(sum(X, dims=2))[:,1] .+ log.(sum(exp.(X), dims=2))[:,1] .+ 0.1randn(m)
 y = (sum(X[:,1:(n ÷ 2)], dims=2) .- sum(X[:,((n ÷ 2) + 1):end], dims=2))[:,1]
 ϵ = 0.01
-C = 100.0*rand(m)
+C = 10.0
 
 # Kernel
 kernel = KernelFunctions.GaussianKernel()
 
 # Only include these for tests where m ~ 1000
-#=
-svr1 = @time fit(SVM_Regression, y, X, kernel, ϵ, C, assemble_kernel = true, method = :cvx_primal)
-@show cst1 = cost(svr1, y, X, ϵ, C)
+##=
+svr1 = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, assemble_kernel = true, method = :cvx_primal)
+@show cst1 = cost(svr1, y, X)
 y_pred1 = predict(svr1, X)
 @show norm(y - y_pred1, 2)/norm(y,2)
 
-svr2 = @time fit(SVM_Regression, y, X, kernel, ϵ, C, assemble_kernel = true, method = :cvx_dual)
-@show cst2 = cost(svr2, y, X, ϵ, C)
+svr2 = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, assemble_kernel = true, method = :cvx_dual)
+@show cst2 = cost(svr2, y, X)
 y_pred2 = predict(svr2, X)
 @show norm(y - y_pred2, 2)/norm(y,2)
-=#
+##=#
 
-svr3 = @time fit(SVM_Regression, y, X, kernel, ϵ, C, assemble_kernel = true, method = :surrogate)
-@show cst3 = cost(svr3, y, X, ϵ, C)
+svr3 = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, assemble_kernel = true, method = :surrogate)
+@show cst3 = cost(svr3, y, X)
 y_pred3 = predict(svr3, X)
 @show norm(y - y_pred3, 2)/norm(y,2)
 
