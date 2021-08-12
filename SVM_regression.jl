@@ -1,10 +1,11 @@
+using Clustering # intended for use with large data sets
 using KernelFunctions
 using LinearAlgebra
 using Statistics
 
 function fit(::Type{SVR_ConditionalDensity}, y::AbstractVector{T}, X::AbstractMatrix{T}, kernel, ϵ::T, C::T
         ; method = :surrogate
-        , assemble_kernel = true
+        , max_points = typemax(Int64)
     ) where {T <: Real}
 
     # Scale X appropriately
@@ -15,37 +16,36 @@ function fit(::Type{SVR_ConditionalDensity}, y::AbstractVector{T}, X::AbstractMa
     X_ = (X .- μ) ./ σ
 
     m = size(X_, 1)
-    K = if assemble_kernel || method ∈ [:cvx_primal, :cvx_dual]
-            S = zeros(T, m, m)
-            for i = 1:m
-                for j = 1:i
-                    S[i,j] = kernel(X_[i,:], X_[j,:])
+
+    centers = if max_points < m # identify cluster centers to represent K
+        clusters = Clustering.kmeans(X_', max_points)
+        clusters.centers
+    else
+        nothing
+    end
+
+    K = begin
+            S = zeros(T, m, min(m, max_points))
+            Threads.@threads for i = 1:m
+                for j = 1:min(i, max_points)
+                    S[i,j] = isnothing(centers) ? kernel(X_[i,:], X_[j,:]) : kernel(X_[i,:], centers[:,j])
                 end
             end
-            Symmetric(S, :L)
-        else
-            nothing
+            S
         end
 
-    function apply_kernel!(x, Kx)
-        if isnothing(K)
-            Threads.@threads for i = 1:m
-                Kx[i] = zero(T)
-                for j = 1:m
-                    Kx[i] += kernel(X_[i,:], X_[j,:])*x[j]
-                end
-            end
-        else
-            mul!(Kx, K, x)
-        end
-    end
+    Kt = K'
+
+    apply_kernel!(x, Kx) = mul!(Kx, K, x)
+
+    apply_kernel_transpose!(x, Ktx) = mul!(Ktx, Kt, x)
 
     weights, bias = if method == :cvx_primal
             calibrate_Primal(y, K, ϵ, fill(C, length(y)))
         elseif method == :cvx_dual
-            calibrate_Dual(y, K, ϵ, fill(C, length(y)))
+            calibrate_Dual(y, Kt, ϵ, fill(C, length(y)))
         elseif method == :surrogate
-            calibrate_surrogate(y, apply_kernel!, ϵ, fill(C, length(y))
+            calibrate_surrogate(y, apply_kernel!, apply_kernel_transpose!, min(m, max_points), ϵ, fill(C, length(y))
                 , maxiters = 1000
                 , tol = 1.0e-6
                 , CG_tol = 1.0e-5
@@ -59,7 +59,7 @@ function fit(::Type{SVR_ConditionalDensity}, y::AbstractVector{T}, X::AbstractMa
                         , w = weights
                         , b = bias
                         , kernel = kernel
-                        , data = X_
+                        , data = isnothing(centers) ? X_ : centers'
                         , ϵ = ϵ
                         , C = C)
 

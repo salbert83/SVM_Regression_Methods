@@ -1,5 +1,7 @@
-push!(LOAD_PATH, @__DIR__)
-using SVM_Regression_Methods
+using Distributed
+addprocs(10)
+@everywhere push!(LOAD_PATH, @__DIR__)
+@everywhere using SVM_Regression_Methods
 using KernelFunctions
 using LinearAlgebra
 using Plots
@@ -21,8 +23,9 @@ kernel = KernelFunctions.PolynomialKernel(degree = 2, c = 0.5)
 
 mixed_model =  fit_mixture(y,  X, ϵ, C, k, kernel, method = :surrogate, tol = 1.0e-5, max_iters = 1_000)
 probs(mixed_model)
-
 pred = predict(mixed_model, X)
-
 plt = plot(y)
 plot!(plt, pred)
+
+mixed_model2 =  fit_mixture(y,  X, ϵ, C, k, kernel, method = :surrogate, max_points=500, tol = 1.0e-5, max_iters = 1_000)
+probs(mixed_model2)

@@ -14,15 +14,15 @@ C = 10.0
 # Kernel
 kernel = KernelFunctions.GaussianKernel()
 
-svr1 = fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, assemble_kernel = true, method = :cvx_primal)
+svr1 = fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, method = :cvx_primal)
 cst1 = cost(svr1, y, X)
 y_pred1 = predict(svr1, X)
 
-svr2 = fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, assemble_kernel = true, method = :cvx_dual)
+svr2 = fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, method = :cvx_dual)
 cst2 = cost(svr2, y, X)
 y_pred2 = predict(svr2, X)
 
-svr3 = fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, assemble_kernel = true, method = :surrogate)
+svr3 = fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, method = :surrogate)
 cst3 = cost(svr3, y, X)
 y_pred3 = predict(svr3, X)
 
@@ -30,10 +30,10 @@ y_pred3 = predict(svr3, X)
 # benchmark
 
 # The problem
-m, n = 1_000, 20
+m, n = 2_000, 20
 X = randn(m, n)
-# y = sin.(sum(X, dims=2))[:,1] .+ log.(sum(exp.(X), dims=2))[:,1] .+ 0.1randn(m)
-y = (sum(X[:,1:(n ÷ 2)], dims=2) .- sum(X[:,((n ÷ 2) + 1):end], dims=2))[:,1]
+y = sin.(sum(X, dims=2))[:,1] .+ log.(sum(exp.(X), dims=2))[:,1] .+ 0.1randn(m)
+# y = (sum(X[:,1:(n ÷ 2)], dims=2) .- sum(X[:,((n ÷ 2) + 1):end], dims=2))[:,1]
 ϵ = 0.01
 C = 10.0
 
@@ -42,21 +42,32 @@ kernel = KernelFunctions.GaussianKernel()
 
 # Only include these for tests where m ~ 1000
 ##=
-svr1 = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, assemble_kernel = true, method = :cvx_primal)
+svr1 = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, method = :cvx_primal)
 @show cst1 = cost(svr1, y, X)
 y_pred1 = predict(svr1, X)
 @show norm(y - y_pred1, 2)/norm(y,2)
 
-svr2 = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, assemble_kernel = true, method = :cvx_dual)
+svr1_red = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, method = :cvx_primal, max_points = 1000)
+@show cst1_red = cost(svr1_red, y, X)
+y_pred1_red = predict(svr1_red, X)
+@show norm(y - y_pred1_red, 2)/norm(y,2)
+
+svr2 = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, method = :cvx_dual)
 @show cst2 = cost(svr2, y, X)
 y_pred2 = predict(svr2, X)
 @show norm(y - y_pred2, 2)/norm(y,2)
 ##=#
 
-svr3 = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, assemble_kernel = true, method = :surrogate)
+svr3 = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, method = :surrogate)
 @show cst3 = cost(svr3, y, X)
 y_pred3 = predict(svr3, X)
 @show norm(y - y_pred3, 2)/norm(y,2)
+
+svr3_red = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, method = :surrogate, max_points = 1000)
+@show cst3_red = cost(svr3_red, y, X)
+y_pred3_red = predict(svr3_red, X)
+@show norm(y - y_pred3_red, 2)/norm(y,2)
+
 
 using JSON
 testfile = "C:\\Users\\salbe\\OneDrive\\Documents\\Julia\\Data\\SVR_test.json"

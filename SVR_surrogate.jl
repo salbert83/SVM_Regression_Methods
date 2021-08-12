@@ -22,7 +22,7 @@ function surrogate(x₀, ϵ; τ = √eps(ϵ))
     return  f
 end
 
-function calibrate_surrogate(y::AbstractVector{T}, apply_K!, ϵ::T, C::AbstractVector{T}
+function calibrate_surrogate(y::AbstractVector{T}, apply_K!, apply_Kt!, n, ϵ::T, C::AbstractVector{T}
     ; maxiters = 1000
     , tol = 1.0e-6
     , max_CG_iters = 50
@@ -32,16 +32,17 @@ function calibrate_surrogate(y::AbstractVector{T}, apply_K!, ϵ::T, C::AbstractV
 
     m = length(y)
     r = similar(y)
+    r_CG = zeros(T, n)
     z = similar(y)
-    w::Vector{T} = isnothing(w_init) ? zeros(T, m) : copy(w_init)
+    w::Vector{T} = isnothing(w_init) ? zeros(T, n) : copy(w_init)
     b::T = isnothing(b_init) ? zero(T) : b_init
     A = similar(y)
     temp_b = similar(y)
     temp_Q = similar(y)
     temp_d = similar(y)
-    d = similar(y)
-    p = similar(y)
-    Qp = similar(y)
+    d = zeros(T, n)
+    p = zeros(T, n)
+    Qp = zeros(T, n)
     params = fill((a=zero(T), t = zero(T), c = zero(T)), m)
 
     function calculate_b(w, A, params)
@@ -83,34 +84,34 @@ function calibrate_surrogate(y::AbstractVector{T}, apply_K!, ϵ::T, C::AbstractV
             temp_Q .*= A
             # apply M^t
             temp_Q .-= A .* sum(temp_Q) ./ sumA
-            apply_K!(temp_Q, Qx)
+            apply_Kt!(temp_Q, Qx)
             # regularization
             Qx .+= x
         end
 
         temp_d .= A .* z
         temp_d .-= A .* sum(temp_d) ./ sumA
-        apply_K!(temp_d, d)
+        apply_Kt!(temp_d, d)
 
         # Use CG to approximately minimize the surrogate.
-        apply_Q!(w, r)
-        r .-= d
-        res_norm = norm(r)
-        p .= -r
-        rdr = dot(r, r)
+        apply_Q!(w, r_CG)
+        r_CG .-= d
+        res_norm = norm(r_CG)
+        p .= -r_CG
+        rdr = dot(r_CG, r_CG)
         for k = 1:max_CG_iters
             apply_Q!(p, Qp)
             pQp = dot(p, Qp)
             α = rdr / pQp
             w .+= α .* p
-            r .+= α .* Qp
-            rdr_ = dot(r,r)
+            r_CG .+= α .* Qp
+            rdr_ = dot(r_CG,r_CG)
             if sqrt(rdr_) < CG_tol * res_norm
                 break
             else
                 β = rdr_/rdr
                 p .*= β
-                p .-= r
+                p .-= r_CG
                 rdr = rdr_
             end
         end
