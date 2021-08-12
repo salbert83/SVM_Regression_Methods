@@ -96,23 +96,25 @@ function calibrate_surrogate(y::AbstractVector{T}, apply_K!, apply_Kt!, n, ϵ::T
         # Use CG to approximately minimize the surrogate.
         apply_Q!(w, r_CG)
         r_CG .-= d
-        res_norm = norm(r_CG)
-        p .= -r_CG
         rdr = dot(r_CG, r_CG)
-        for k = 1:max_CG_iters
-            apply_Q!(p, Qp)
-            pQp = dot(p, Qp)
-            α = rdr / pQp
-            w .+= α .* p
-            r_CG .+= α .* Qp
-            rdr_ = dot(r_CG,r_CG)
-            if sqrt(rdr_) < CG_tol * res_norm
-                break
-            else
-                β = rdr_/rdr
-                p .*= β
-                p .-= r_CG
-                rdr = rdr_
+        res_norm = sqrt(rdr)
+        p .= -r_CG
+        if rdr > √eps(rdr)
+            for k = 1:max_CG_iters
+                apply_Q!(p, Qp)
+                pQp = dot(p, Qp)
+                α = rdr / pQp
+                w .+= α .* p
+                r_CG .+= α .* Qp
+                rdr_ = dot(r_CG,r_CG)
+                if sqrt(rdr_) < CG_tol * res_norm
+                    break
+                else
+                    β = rdr_/rdr
+                    p .*= β
+                    p .-= r_CG
+                    rdr = rdr_
+                end
             end
         end
 
