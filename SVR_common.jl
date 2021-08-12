@@ -1,5 +1,6 @@
 using Distributions
 using KernelFunctions
+using JSON
 using Parameters
 
 import Distributions: pdf, logpdf
@@ -18,6 +19,17 @@ import Distributions: pdf, logpdf
     # Additional params for density
     ϵ::T
     C::T
+end
+
+function to_dict(svr::SVR_ConditionalDensity)
+    return Dict(:μ => svr.μ
+        , :σ => svr.σ
+        , :w => svr.w
+        , :b => svr.b
+        , :kernel => string(svr.kernel)
+        , :data => svr.data
+        , :ϵ => svr.ϵ
+        , :C => svr.C)
 end
 
 ϵ_insensitive_loss(x, ϵ) = max(abs(x) - ϵ, 0.0)
