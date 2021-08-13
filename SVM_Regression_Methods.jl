@@ -6,7 +6,7 @@ include("SVR_convex.jl")
 include("SVM_regression.jl")
 include("SVR_mixture_models.jl")
 
-export SVM_Regression, SVR_ConditionalDensity
+export SVR_ConditionalDensity, to_dict
 export fit, predict, cost
 export pdf, logpdf, fit_mixture
 

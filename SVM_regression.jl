@@ -27,7 +27,7 @@ function fit(::Type{SVR_ConditionalDensity}, y::AbstractVector{T}, X::AbstractMa
     K = begin
             S = zeros(T, m, min(m, max_points))
             Threads.@threads for i = 1:m
-                for j = 1:min(i, max_points)
+                for j = 1:min(m, max_points)
                     S[i,j] = isnothing(centers) ? kernel(X_[i,:], X_[j,:]) : kernel(X_[i,:], centers[:,j])
                 end
             end

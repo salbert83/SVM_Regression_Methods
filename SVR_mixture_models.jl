@@ -33,7 +33,7 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
     K = begin
             M = zeros(T, m, min(m, max_points))
             Threads.@threads for i = 1:m
-                for j = 1:min(i, max_points)
+                for j = 1:min(m, max_points)
                     M[i,j] = isnothing(centers) ? kernel(YX_[i,2:end], YX_[j,2:end]) : kernel(YX_[i,2:end], centers[:,j])
                 end
             end
@@ -48,14 +48,14 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
 
     # Use K-means for initial clusters
     clusters = Clustering.kmeans(YX_', k)
-    wgts = [((clusters.assignments[i] .== j) ? 1.0 : 0.0) for i = 1:m, j = 1:k]
+    wgts = SharedArray([((clusters.assignments[i] .== j) ? 1.0 : 0.0) for i = 1:m, j = 1:k])
     models = Vector{SVR_ConditionalDensity}(undef, k)
 
     θ =  SharedArray(zeros(T, min(m, max_points), k))
     b = SharedArray(zeros(T, k))
-    component_probs = zeros(T, k)
+    component_probs = SharedArray(zeros(T, k))
     offset = zeros(T, m, 1)
-    ξ = zeros(T, m)
+    ξ = SharedArray(zeros(T, m, k))
     loglikelihood = -Inf64
     loglikelihood_old = -Inf64
 
@@ -79,19 +79,18 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
                 end
             θ[:, model_idx] .= weights
             b[model_idx] = bias
-        end
-        # update mixture weights
-        for model_idx = 1:k
-            mul!(ξ, K, -θ[:, model_idx])
-            ξ .+= y .- b[model_idx]
+            mul!(view(ξ, :, model_idx), K, θ[:, model_idx])
+            ξ[:, model_idx] .= y .- ξ[:, model_idx] .- b[model_idx]
             for i = 1:m
-                wgts[i, model_idx] = log(component_probs[model_idx]) + log_cond_prob(ξ[i], ϵ, C)
+                wgts[i, model_idx] = log(component_probs[model_idx]) + log_cond_prob(ξ[i, model_idx], ϵ, C)
             end
         end
+
+        # update mixture weights
         offset .= maximum(wgts, dims = 2)
         wgts .-= offset
         wgts .= exp.(wgts)
-        loglikelihood =  sum(offset .+ log.(sum(wgts, dims = 2)))
+        loglikelihood = sum(offset .+ log.(sum(wgts, dims = 2)))
         wgts ./= sum(wgts, dims = 2)
 
         println("iter $(iter): loglikelihood = $(loglikelihood)")
