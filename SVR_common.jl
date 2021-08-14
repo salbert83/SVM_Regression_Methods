@@ -50,7 +50,11 @@ function from_dict(::Type{S}, data
                     s == data["kernel"] || @warn "Expected kernel doesn't match saved kernel"
                     expected_kernel
                 end
-        , data = convert(Matrix{Float64}, data["data"])
+        , data = if typeof(data["data"]) <: Vector
+                    hcat([convert(Vector{Float64}, c) for c ∈ data["data"]]...) # matrices stored in column major form
+                else
+                    convert(Matrix{Float64}, data["data"])
+                end
         , ϵ = convert(Float64, data["ϵ"])
         , C = convert(Float64, data["C"])
     )
