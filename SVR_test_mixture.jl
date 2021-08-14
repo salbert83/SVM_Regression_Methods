@@ -31,3 +31,6 @@ mixed_model2 =  fit_mixture(y,  X, ϵ, C, k, kernel, method = :surrogate, max_po
 probs(mixed_model2)
 dm = to_dict(mixed_model2)
 fdm = from_dict(MixtureModel{Univariate, Continuous, SVR_ConditionalDensity}, dm, expected_kernel=kernel)
+
+w = [SVM_Regression_Methods.posterior_probs(mixed_model2, y[i], X[i,:]) for i = 1:m]
+mean(w)
