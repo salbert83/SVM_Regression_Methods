@@ -22,14 +22,47 @@ import Distributions: pdf, logpdf
 end
 
 function to_dict(svr::SVR_ConditionalDensity)
-    return Dict(:μ => svr.μ
-        , :σ => svr.σ
-        , :w => svr.w
-        , :b => svr.b
-        , :kernel => string(svr.kernel)
-        , :data => svr.data
-        , :ϵ => svr.ϵ
-        , :C => svr.C)
+    return Dict("μ" => svr.μ
+        , "σ" => svr.σ
+        , "w" => svr.w
+        , "b" => svr.b
+        , "kernel" => string(svr.kernel)
+        , "data" => svr.data
+        , "ϵ" => svr.ϵ
+        , "C" => svr.C)
+end
+
+function from_dict(::Type{S}, data
+    ; expected_kernel = nothing) where S<:SVR_ConditionalDensity
+
+    # This part should be revisited when I have more time
+    kernel_lookup = Dict("Squared Exponential Kernel (metric = Distances.Euclidean(0.0))" => GaussianKernel())
+
+    return SVR_ConditionalDensity(
+        μ = convert(Vector{Float64}, data["μ"])
+        , σ = convert(Vector{Float64}, data["σ"])
+        , w = convert(Vector{Float64}, data["w"])
+        , b = convert(Float64, data["b"])
+        , kernel = if isnothing(expected_kernel)
+                    kernel_lookup[data["kernel"]]
+                else
+                    s = string(expected_kernel)
+                    s == data["kernel"] || @warn "Expected kernel doesn't match saved kernel"
+                    expected_kernel
+                end
+        , data = convert(Matrix{Float64}, data["data"])
+        , ϵ = convert(Float64, data["ϵ"])
+        , C = convert(Float64, data["C"])
+    )
+end
+
+function to_dict(mix::MixtureModel{Univariate, Continuous, SVR_ConditionalDensity})
+    return [Dict("prob"=>p, "component"=>to_dict(c)) for (p,c) ∈ zip(probs(mix), components(mix))]
+end
+
+function from_dict(::Type{S}, data
+    ; expected_kernel=nothing) where {S<:MixtureModel{Univariate, Continuous, SVR_ConditionalDensity}}
+    return MixtureModel([from_dict(SVR_ConditionalDensity, d["component"], expected_kernel=expected_kernel) for d ∈ data], [d["prob"] for d ∈ data])
 end
 
 ϵ_insensitive_loss(x, ϵ) = max(abs(x) - ϵ, 0.0)

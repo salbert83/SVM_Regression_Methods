@@ -29,3 +29,5 @@ plot!(plt, pred)
 
 mixed_model2 =  fit_mixture(y,  X, ϵ, C, k, kernel, method = :surrogate, max_points=500, tol = 1.0e-5, max_iters = 1_000)
 probs(mixed_model2)
+dm = to_dict(mixed_model2)
+fdm = from_dict(MixtureModel{Univariate, Continuous, SVR_ConditionalDensity}, dm, expected_kernel=kernel)

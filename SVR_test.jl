@@ -26,7 +26,8 @@ svr3 = fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, method = :surrogate)
 cst3 = cost(svr3, y, X)
 y_pred3 = predict(svr3, X)
 
-
+d = to_dict(svr3)
+fd  = from_dict(SVR_ConditionalDensity, d)
 # benchmark
 
 # The problem
