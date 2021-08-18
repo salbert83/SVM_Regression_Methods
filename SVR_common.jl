@@ -72,7 +72,7 @@ end
 ϵ_insensitive_loss(x, ϵ) = max(abs(x) - ϵ, 0.0)
 
 # pdf consistent with SVR penalty C/2 |ξ|_ϵ
-log_cond_prob(ξ, ϵ, C) = log(C / (2.0 * (2.0 + ϵ * C))) - ϵ_insensitive_loss(ξ, ϵ)
+log_cond_prob(ξ, ϵ, C) = log(C / (2.0 * (2.0 + ϵ * C))) - 0.5C*ϵ_insensitive_loss(ξ, ϵ)
 
 function logpdf(d::SVR_ConditionalDensity, y, x)
     x_ = (x .- d.μ) ./ d.σ
