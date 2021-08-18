@@ -13,7 +13,7 @@ function fit(::Type{SVR_ConditionalDensity}, y::AbstractVector{T}, X::AbstractMa
     σ = std(X, dims = 1)
     σ[σ .<= 0] .= one(T)
 
-    X_ = (X .- μ) ./ σ
+    X_ = convert(Matrix{T}, (X .- μ) ./ σ)
 
     m = size(X_, 1)
 
@@ -31,7 +31,7 @@ function fit(::Type{SVR_ConditionalDensity}, y::AbstractVector{T}, X::AbstractMa
                     S[i,j] = isnothing(centers) ? kernel(X_[i,:], X_[j,:]) : kernel(X_[i,:], centers[:,j])
                 end
             end
-            S
+            convert(typeof(X), S)
         end
 
     Kt = K'
@@ -45,7 +45,9 @@ function fit(::Type{SVR_ConditionalDensity}, y::AbstractVector{T}, X::AbstractMa
         elseif method == :cvx_dual
             calibrate_Dual(y, Kt, ϵ, fill(C, length(y)))
         elseif method == :surrogate
-            calibrate_surrogate(y, apply_kernel!, apply_kernel_transpose!, min(m, max_points), ϵ, fill(C, length(y))
+            Cvec = similar(y)
+            Cvec .= C
+            calibrate_surrogate(y, apply_kernel!, apply_kernel_transpose!, min(m, max_points), ϵ, Cvec
                 , maxiters = 1000
                 , tol = 1.0e-6
                 , CG_tol = 1.0e-5
@@ -54,10 +56,10 @@ function fit(::Type{SVR_ConditionalDensity}, y::AbstractVector{T}, X::AbstractMa
             throw(ArgumentError("Unsupported SVR optimization"))
         end
 
-    return SVR_ConditionalDensity(μ = μ[1,:]
-                        , σ = σ[1,:]
-                        , w = weights
-                        , b = bias
+    return SVR_ConditionalDensity(μ = convert(Vector{T}, μ[1,:])
+                        , σ = convert(Vector{T}, σ[1,:])
+                        , w = convert(Vector{T}, weights)
+                        , b = convert(T, bias)
                         , kernel = kernel
                         , data = isnothing(centers) ? X_ : centers'
                         , ϵ = ϵ

@@ -21,7 +21,7 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
     μ = mean(YX, dims = 1)
     σ = std(YX, dims = 1)
     σ[σ .== zero(T)] .= one(T)
-    YX_ = (YX .- μ) ./ σ
+    YX_ = convert(Matrix{T}, (YX .- μ) ./ σ)
 
     centers = if max_points < m
         clusters = Clustering.kmeans(YX_[:,2:end]', max_points)
@@ -37,7 +37,7 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
                     M[i,j] = isnothing(centers) ? kernel(YX_[i,2:end], YX_[j,2:end]) : kernel(YX_[i,2:end], centers[:,j])
                 end
             end
-            M
+            convert(typeof(X), M)
         end
 
     Kt = K'
@@ -46,12 +46,15 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
 
     apply_kernel_transpose!(x, Ktx) = mul!(Ktx, Kt, x)
 
+    mK = convert(Matrix{T}, K)
+    mY = convert(Vector{T}, y)
+
     # Use K-means for initial clusters
     clusters = Clustering.kmeans(YX_', k)
-    wgts = SharedArray([((clusters.assignments[i] .== j) ? 1.0 : 0.0) for i = 1:m, j = 1:k])
+    wgts = SharedArray([((clusters.assignments[i] .== j) ? one(T) : zero(T)) for i = 1:m, j = 1:k])
     models = Vector{SVR_ConditionalDensity}(undef, k)
 
-    θ =  SharedArray(zeros(T, min(m, max_points), k))
+    θ = SharedArray(zeros(T, min(m, max_points), k))
     b = SharedArray(zeros(T, k))
     component_probs = SharedArray(zeros(T, k))
     offset = zeros(T, m, 1)
@@ -67,20 +70,21 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
                 elseif method == :cvx_dual
                     calibrate_Dual(y, Kt, ϵ, C * wgts[:, model_idx])
                 elseif method == :surrogate
-                    calibrate_surrogate(y, apply_kernel!, apply_kernel_transpose!, min(m, max_points), ϵ, C * wgts[:, model_idx]
+                    Cvec = convert(typeof(y), C * wgts[:, model_idx])
+                    calibrate_surrogate(y, apply_kernel!, apply_kernel_transpose!, min(m, max_points), ϵ, Cvec
                         , maxiters = 1000
                         , tol = 1.0e-6
                         , CG_tol = 1.0e-5
                         , max_CG_iters = 50
-                        , w_init = θ[:, model_idx]
+                        , w_init = convert(typeof(y), θ[:, model_idx])
                         , b_init = b[model_idx])
                 else
                     throw(ArgumentError("Unsupported SVR optimization"))
                 end
-            θ[:, model_idx] .= weights
+            θ[:, model_idx] .= convert(Vector{T}, weights)
             b[model_idx] = bias
-            mul!(view(ξ, :, model_idx), K, θ[:, model_idx])
-            ξ[:, model_idx] .= y .- ξ[:, model_idx] .- b[model_idx]
+            mul!(view(ξ, :, model_idx), mK, θ[:, model_idx])
+            ξ[:, model_idx] .= mY .- ξ[:, model_idx] .- b[model_idx]
             for i = 1:m
                 wgts[i, model_idx] = log(component_probs[model_idx]) + log_cond_prob(ξ[i, model_idx], ϵ, C)
             end
@@ -102,8 +106,8 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
     end
     for model_idx = 1:k
         models[model_idx] = SVR_ConditionalDensity(
-            μ = μ[1,2:end]
-            , σ = σ[1,2:end]
+            μ = convert(Vector{T}, μ[1,2:end])
+            , σ = convert(Vector{T}, σ[1,2:end])
             , w = θ[:, model_idx]
             , b = b[model_idx]
             , kernel = kernel

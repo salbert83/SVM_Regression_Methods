@@ -4,7 +4,7 @@ function surrogate_params(z, ϵ; τ = √eps(ϵ))
     if abs(z) > 2.0ϵ
         a = 0.5 / abs(z)
         c = 0.5abs(z) - ϵ
-        return (a = a, t = 0.0, c = c)
+        return (a = a, t = zero(z), c = c)
     else
         a = 1.0 / (4.0abs(abs(z) - ϵ) + τ)
         t = if abs(z) > ϵ
@@ -22,9 +22,56 @@ function surrogate(x₀, ϵ; τ = √eps(ϵ))
     return  f
 end
 
+function surrogate_a(z, ϵ; τ = √eps(ϵ))
+    if abs(z) > 2.0ϵ
+        return 0.5 / abs(z)
+    else
+        return one(z) / (4.0abs(abs(z) - ϵ) + τ)
+    end
+end
+
+function surrogate_t(z, ϵ; τ = √eps(ϵ))
+    if abs(z) > 2.0ϵ
+        return zero(z)
+    else
+        if abs(z) > ϵ
+            return ((z > ϵ) ? 1.0 : -1.0) * (2.0ϵ - abs(z))
+        else
+            return z
+        end
+    end
+end
+
+function CG!(w, apply_Q!, r_CG, d, p, Qp, CG_tol, CG_iters)
+    apply_Q!(w, r_CG)
+    r_CG .-= d
+    rdr = dot(r_CG, r_CG)
+    res_norm = sqrt(rdr)
+    p .= -r_CG
+    if rdr > √eps(rdr)
+        for k = 1:CG_iters
+            apply_Q!(p, Qp)
+            pQp = dot(p, Qp)
+            α = rdr / pQp
+            w .+= α .* p
+            r_CG .+= α .* Qp
+            rdr_ = dot(r_CG,r_CG)
+            if sqrt(rdr_) < CG_tol * res_norm
+                break
+            else
+                β = rdr_/rdr
+                p .*= β
+                p .-= r_CG
+                rdr = rdr_
+            end
+        end
+    end
+end
+
 function calibrate_surrogate(y::AbstractVector{T}, apply_K!, apply_Kt!, n, ϵ::T, C::AbstractVector{T}
     ; maxiters = 1000
     , tol = 1.0e-6
+    , min_CG_iters = 20
     , max_CG_iters = 50
     , CG_tol = 1.0e-5
     , w_init = nothing
@@ -32,24 +79,29 @@ function calibrate_surrogate(y::AbstractVector{T}, apply_K!, apply_Kt!, n, ϵ::T
 
     m = length(y)
     r = similar(y)
-    r_CG = zeros(T, n)
+    r_CG = similar(y, n)
     z = similar(y)
-    w::Vector{T} = isnothing(w_init) ? zeros(T, n) : copy(w_init)
-    b::T = isnothing(b_init) ? zero(T) : b_init
+    w = if isnothing(w_init)    # If not initialized, start at 0
+            w_init = similar(y, n)
+            w_init .= zero(T)
+            w_init
+        else
+            copy(w_init)
+        end
+    b = isnothing(b_init) ? zero(T) : b_init
     A = similar(y)
     temp_b = similar(y)
     temp_Q = similar(y)
     temp_d = similar(y)
-    d = zeros(T, n)
-    p = zeros(T, n)
-    Qp = zeros(T, n)
-    params = fill((a=zero(T), t = zero(T), c = zero(T)), m)
+    d = similar(y, n)
+    p = similar(y, n)
+    Qp = similar(y, n)
+    params_a = similar(y, m)
+    params_t = similar(y, m)
 
-    function calculate_b(w, A, params)
+    function calculate_b(w, A, t)
         apply_K!(w, temp_b)
-        for i = 1:m
-            temp_b[i] = y[i] - temp_b[i] - params[i].t
-        end
+        temp_b .= y .- temp_b .- t
         return sum(A .* temp_b) / sum(A)
     end
 
@@ -68,11 +120,10 @@ function calibrate_surrogate(y::AbstractVector{T}, apply_K!, apply_Kt!, n, ϵ::T
             svr_cost_old = svr_cost
         end
 
-        params .= surrogate_params.(r, ϵ, τ = √eps(ϵ))
-        for i = 1:m
-            A[i] = C[i] * params[i].a
-            z[i] = y[i] - params[i].t
-        end
+        params_a .= surrogate_a.(r, ϵ)
+        params_t .= surrogate_t.(r, ϵ)
+        A .= C .* params_a
+        z .= y .- params_t
         sumA = sum(A)
         z .-= sum(A .* z) / sumA
 
@@ -93,32 +144,9 @@ function calibrate_surrogate(y::AbstractVector{T}, apply_K!, apply_Kt!, n, ϵ::T
         temp_d .-= A .* sum(temp_d) ./ sumA
         apply_Kt!(temp_d, d)
 
-        # Use CG to approximately minimize the surrogate.
-        apply_Q!(w, r_CG)
-        r_CG .-= d
-        rdr = dot(r_CG, r_CG)
-        res_norm = sqrt(rdr)
-        p .= -r_CG
-        if rdr > √eps(rdr)
-            for k = 1:max_CG_iters
-                apply_Q!(p, Qp)
-                pQp = dot(p, Qp)
-                α = rdr / pQp
-                w .+= α .* p
-                r_CG .+= α .* Qp
-                rdr_ = dot(r_CG,r_CG)
-                if sqrt(rdr_) < CG_tol * res_norm
-                    break
-                else
-                    β = rdr_/rdr
-                    p .*= β
-                    p .-= r_CG
-                    rdr = rdr_
-                end
-            end
-        end
+        CG!(w, apply_Q!, r_CG, d, p, Qp, CG_tol, min(min_CG_iters + iter, max_CG_iters))
 
-        b = calculate_b(w, A, params)
+        b = calculate_b(w, A, params_t)
 
     end
 
