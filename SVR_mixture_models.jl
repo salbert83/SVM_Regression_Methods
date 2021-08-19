@@ -62,7 +62,7 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
     loglikelihood_old = -Inf
 
     for iter = 1:max_iters
-        component_probs .= (sum(wgts, dims=1) ./ m
+        component_probs .= sum(wgts, dims=1) ./ m
         @sync @distributed for model_idx = 1:k
             weights, bias = if method == :cvx_primal
                     calibrate_Primal(y, K, ϵ, C * wgts[:, model_idx])
