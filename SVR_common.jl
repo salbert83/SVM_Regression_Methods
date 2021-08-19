@@ -66,7 +66,10 @@ end
 
 function from_dict(::Type{S}, data
     ; expected_kernel=nothing) where {S<:MixtureModel{Univariate, Continuous, SVR_ConditionalDensity}}
-    return MixtureModel([from_dict(SVR_ConditionalDensity, d["component"], expected_kernel=expected_kernel) for d ∈ data], [d["prob"] for d ∈ data])
+    # Data on file might have been generated under lower precision than required
+    p = [d["prob"] for d ∈ data]
+    p ./= sum(p)
+    return MixtureModel([from_dict(SVR_ConditionalDensity, d["component"], expected_kernel=expected_kernel) for d ∈ data], p)
 end
 
 ϵ_insensitive_loss(x, ϵ) = max(abs(x) - ϵ, 0.0)
