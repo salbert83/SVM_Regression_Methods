@@ -27,7 +27,7 @@ svr3 = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, method = :surrogat
 cst3 = cost(svr3, y, X)
 y_pred3 = predict(svr3, X)
 
-svr3_cu = @time fit(SVR_ConditionalDensity, cu(y), cu(X), kernel, convert(Float32, ϵ), convert(Float32, C), method = :surrogate)
+svr3_cu = @time fit(SVR_ConditionalDensity, cu(y), convert(Matrix{Float32}, X), kernel, convert(Float32, ϵ), convert(Float32, C), method = :surrogate)
 cst3_cu = cost(svr3_cu, y, X)
 y_pred3_cu = predict(svr3_cu, X)
 
@@ -36,7 +36,7 @@ fd  = from_dict(SVR_ConditionalDensity, d)
 # benchmark
 
 # The problem
-m, n = 2_000, 20
+m, n = 1_000, 20
 X = randn(m, n)
 y = sin.(sum(X, dims=2))[:,1] .+ log.(sum(exp.(X), dims=2))[:,1] .+ 0.1randn(m)
 # y = (sum(X[:,1:(n ÷ 2)], dims=2) .- sum(X[:,((n ÷ 2) + 1):end], dims=2))[:,1]
@@ -69,7 +69,7 @@ svr3 = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, method = :surrogat
 y_pred3 = predict(svr3, X)
 @show norm(y - y_pred3, 2)/norm(y,2)
 
-svr3_cu = @time fit(SVR_ConditionalDensity, cu(y), cu(X), kernel, convert(Float32, ϵ), convert(Float32, C), method = :surrogate)
+svr3_cu = @time fit(SVR_ConditionalDensity, cu(y), convert(Matrix{Float32}, X), kernel, convert(Float32, ϵ), convert(Float32, C), method = :surrogate)
 @show cst3_cu = cost(svr3_cu, y, X)
 y_pred3_cu = predict(svr3_cu, X)
 @show norm(y - y_pred3_cu, 2)/norm(y,2)

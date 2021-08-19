@@ -1,4 +1,5 @@
 using Clustering # intended for use with large data sets
+using CUDA
 using KernelFunctions
 using LinearAlgebra
 using Statistics
@@ -31,19 +32,17 @@ function fit(::Type{SVR_ConditionalDensity}, y::AbstractVector{T}, X::AbstractMa
                     S[i,j] = isnothing(centers) ? kernel(X_[i,:], X_[j,:]) : kernel(X_[i,:], centers[:,j])
                 end
             end
-            convert(typeof(X), S)
+            (typeof(y) <: CuArray) ? cu(S) : S
         end
-
-    Kt = K'
 
     apply_kernel!(x, Kx) = mul!(Kx, K, x)
 
-    apply_kernel_transpose!(x, Ktx) = mul!(Ktx, Kt, x)
+    apply_kernel_transpose!(x, Ktx) = mul!(Ktx, K', x)
 
     weights, bias = if method == :cvx_primal
             calibrate_Primal(y, K, ϵ, fill(C, length(y)))
         elseif method == :cvx_dual
-            calibrate_Dual(y, Kt, ϵ, fill(C, length(y)))
+            calibrate_Dual(y, K', ϵ, fill(C, length(y)))
         elseif method == :surrogate
             Cvec = similar(y)
             Cvec .= C

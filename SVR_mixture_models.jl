@@ -1,4 +1,5 @@
 using Clustering
+using CUDA
 using Distributed
 using Distributions
 using KernelFunctions
@@ -16,12 +17,12 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
 
     m, n = size(X)
 
-    YX = hcat(y, X)
+    YX = hcat(convert(Vector{T}, y), convert(Matrix{T}, X))
 
     μ = mean(YX, dims = 1)
     σ = std(YX, dims = 1)
-    σ[σ .== zero(T)] .= one(T)
-    YX_ = convert(Matrix{T}, (YX .- μ) ./ σ)
+    σ[σ .<= zero(T)] .= one(T)
+    YX_ = (YX .- μ) ./ σ
 
     centers = if max_points < m
         clusters = Clustering.kmeans(YX_[:,2:end]', max_points)
@@ -37,17 +38,15 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
                     M[i,j] = isnothing(centers) ? kernel(YX_[i,2:end], YX_[j,2:end]) : kernel(YX_[i,2:end], centers[:,j])
                 end
             end
-            convert(typeof(X), M)
+            (typeof(y) <: CuArray) ?  cu(M) : M
         end
-
-    Kt = K'
 
     apply_kernel!(x, Kx) = mul!(Kx, K, x)
 
-    apply_kernel_transpose!(x, Ktx) = mul!(Ktx, Kt, x)
+    apply_kernel_transpose!(x, Ktx) = mul!(Ktx, K', x)
 
     mK = convert(Matrix{T}, K)
-    mY = convert(Vector{T}, y)
+    vy = convert(Vector{T}, y)
 
     # Use K-means for initial clusters
     clusters = Clustering.kmeans(YX_', k)
@@ -59,8 +58,8 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
     component_probs = SharedArray(zeros(T, k))
     offset = zeros(T, m, 1)
     ξ = SharedArray(zeros(T, m, k))
-    loglikelihood = -Inf64
-    loglikelihood_old = -Inf64
+    loglikelihood = -Inf
+    loglikelihood_old = -Inf
 
     for iter = 1:max_iters
         component_probs .= (sum(wgts, dims=1) ./ m)[1,:]
@@ -84,7 +83,7 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
             θ[:, model_idx] .= convert(Vector{T}, weights)
             b[model_idx] = bias
             mul!(view(ξ, :, model_idx), mK, θ[:, model_idx])
-            ξ[:, model_idx] .= mY .- ξ[:, model_idx] .- b[model_idx]
+            ξ[:, model_idx] .= vy .- ξ[:, model_idx] .- b[model_idx]
             for i = 1:m
                 wgts[i, model_idx] = log(component_probs[model_idx]) + log_cond_prob(ξ[i, model_idx], ϵ, C)
             end
