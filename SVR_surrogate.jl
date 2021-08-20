@@ -53,6 +53,9 @@ function CG!(w, apply_Q!, r_CG, d, p, Qp, CG_tol, CG_iters)
             apply_Q!(p, Qp)
             pQp = dot(p, Qp)
             α = rdr / pQp
+            if isnan(α)
+                break # Overwhelmed by ill conditioning.
+            end
             w .+= α .* p
             r_CG .+= α .* Qp
             rdr_ = dot(r_CG,r_CG)
