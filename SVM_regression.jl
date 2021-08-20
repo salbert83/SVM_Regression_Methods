@@ -32,7 +32,7 @@ function fit(::Type{SVR_ConditionalDensity}, y::AbstractVector{T}, X::AbstractMa
                     S[i,j] = isnothing(centers) ? kernel(X_[i,:], X_[j,:]) : kernel(X_[i,:], centers[:,j])
                 end
             end
-            (typeof(y) <: CuArray) ? cu(S) : S
+            (typeof(y) <: CuArray) ? CuArray{T}(S) : S
         end
 
     apply_kernel!(x, Kx) = mul!(Kx, K, x)

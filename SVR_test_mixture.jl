@@ -22,13 +22,13 @@ C = 10.0
 k = 5
 kernel = KernelFunctions.PolynomialKernel(degree = 2, c = 0.5)
 
-mixed_model = @time fit_mixture(y,  X, ϵ, C, k, kernel, method = :surrogate, tol = 1.0e-5, max_iters = 1_000)
+mixed_model = @time fit_mixture(y, X, ϵ, C, k, kernel, method = :surrogate, tol = 1.0e-5, max_iters = 1_000)
 probs(mixed_model)
 pred = predict(mixed_model, X)
 plt = plot(y)
 plot!(plt, pred)
 
-mixed_model_cu =  fit_mixture(cu(y), convert(Matrix{Float32}, X), convert(Float32,ϵ), convert(Float32, C), k, kernel, method = :surrogate, tol = 1.0e-5, max_iters = 1_000)
+mixed_model_cu =  fit_mixture(CuArray{Float64}(y), X, ϵ, C, k, kernel, method = :surrogate, tol = 1.0e-5, max_iters = 1_000)
 probs(mixed_model_cu)
 pred_cu = predict(mixed_model_cu, X)
 plt = plot(y)

@@ -38,7 +38,7 @@ function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k,
                     M[i,j] = isnothing(centers) ? kernel(YX_[i,2:end], YX_[j,2:end]) : kernel(YX_[i,2:end], centers[:,j])
                 end
             end
-            (typeof(y) <: CuArray) ?  cu(M) : M
+            (typeof(y) <: CuArray) ?  CuArray{T}(M) : M
         end
 
     apply_kernel!(x, Kx) = mul!(Kx, K, x)

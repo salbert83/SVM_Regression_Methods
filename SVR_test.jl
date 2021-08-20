@@ -27,7 +27,7 @@ svr3 = @time fit(SVR_ConditionalDensity, y, X, kernel, ϵ, C, method = :surrogat
 cst3 = cost(svr3, y, X)
 y_pred3 = predict(svr3, X)
 
-svr3_cu = @time fit(SVR_ConditionalDensity, cu(y), convert(Matrix{Float32}, X), kernel, convert(Float32, ϵ), convert(Float32, C), method = :surrogate)
+svr3_cu = @time fit(SVR_ConditionalDensity, CuArray{Float64}(y), X, kernel, ϵ, C, method = :surrogate)
 cst3_cu = cost(svr3_cu, y, X)
 y_pred3_cu = predict(svr3_cu, X)
 
