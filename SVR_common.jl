@@ -88,13 +88,13 @@ end
 
 pdf(d::SVR_ConditionalDensity, y, x) = exp(logpdf(d, y, x))
 
-function logpdf(mix::MixtureModel{Univariate, Continuous, SVR_ConditionalDensity}, y, x)
+function logpdf(mix::MixtureModel{Univariate, Continuous, C}, y, x) where {C <: SVR_ConditionalDensity}
     logprobs = [logpdf(d, y, x) for d ∈ components(mix)] .+ log.(probs(mix))
     m = maximum(logprobs)
     return m + log(sum(exp.(logprobs .- m)))
 end
 
-pdf(mix::MixtureModel{Univariate, Continuous, SVR_ConditionalDensity}, y, x) = exp(logpdf(mix, y, x))
+pdf(mix::MixtureModel{Univariate, Continuous, C}, y, x) where {C <: SVR_ConditionalDensity} = exp(logpdf(mix, y, x))
 
 function posterior_probs(mix::MixtureModel{Univariate, Continuous, C}, y, x) where {C <: SVR_ConditionalDensity}
     logprobs = [logpdf(d, y, x) for d ∈ components(mix)] .+ log.(probs(mix))
