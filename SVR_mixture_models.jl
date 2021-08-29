@@ -7,8 +7,6 @@ using LinearAlgebra
 using SharedArrays
 using Statistics
 
-import Distributions: pdf, logpdf
-
 function fit_mixture(y::AbstractVector{T}, X::AbstractMatrix{T}, ϵ::T, C::T, k, kernel
     ; method = :surrogate
     , max_points = typemax(Int64)
